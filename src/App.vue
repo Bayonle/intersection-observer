@@ -1,5 +1,5 @@
 <template>
-  <div id="app">
+  <div id="app" ref="root">
     <h1>Latest Products</h1>
     <div class="product-list">
       <div v-for="(product, index) in products" :key="index" class="product-list__item">
@@ -7,7 +7,7 @@
         <p>{{product.price}}</p>
       </div>
     </div>
-    <button v-if="hasMore && !isLoading" @click="loadMore">Load more</button>
+    <button v-show="hasMore && !isLoading" @click="loadMore" ref="loadMore">Load more</button>
     <p v-if="isLoading">Fetching...</p>
   </div>
 </template>
@@ -22,7 +22,6 @@ export default {
       products: [],
       totalRecords: 0,
       perPage: 10,
-      showing: 0,
       currentPage: 0,
       isLoading: false
     };
@@ -32,16 +31,16 @@ export default {
       await new Promise(resolve => setTimeout(resolve, timeout));
     },
     async loadMore() {
-      this.isLoading = true
       this.currentPage++;
       await this.loadProducts();
-      this.isLoading = false;
     },
     async loadProducts() {
+      this.isLoading = true;
       const { items, totalRecords } = await this.getProducts();
       const newItems = items.slice(this.start, this.limit);
       this.products = [...this.products, ...newItems];
       this.totalRecords = totalRecords;
+      this.isLoading = false;
     },
     async getProducts() {
       await this.fakeAsync();
@@ -68,8 +67,22 @@ export default {
       return (this.currentPage + 1) * this.perPage;
     }
   },
-  created() {
-    this.loadProducts(this.start, this.limit);
+  async created() {
+    await this.loadProducts(this.start, this.limit);
+  },
+  mounted() {
+    let options = {
+      root: this.$refs.root,
+      rootMargin: "0px",
+      threshold: 1.0
+    };
+    let observer = new IntersectionObserver(async entries => {
+      if (entries[0].isIntersecting) {
+        await this.loadMore();
+      }
+    }, options);
+    const target = this.$refs.loadMore;
+    observer.observe(target);
   }
 };
 </script>
@@ -83,10 +96,14 @@ export default {
   color: #2c3e50;
   margin-top: 60px;
   width: 60%;
+  height: 100vh;
   /* background: blue; */
   margin: 0 auto;
   overflow: auto;
   padding: 20px 10px;
+}
+.target {
+  margin-top: 100vh;
 }
 
 h1 {
